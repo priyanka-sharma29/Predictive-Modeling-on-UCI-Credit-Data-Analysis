@@ -1,0 +1,249 @@
+---
+title: "Topic 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Getting started with decision trees using the rpart package
+
+```{r}
+# Install the 'rpart' package to develop decision trees
+install.packages('rpart')
+library('rpart')
+```
+
+```{r}
+# Read the data, and examine summary statistics 
+gcData <- read.csv(file.choose(), header = TRUE)
+summary(gcData)
+attributes(gcData)
+View(gcData)
+```
+
+```{r}
+# Make sure that the variabes are set to the correct attribute type -- factor, integer, numeric
+str(gcData)
+```
+
+```{r}
+# Columns to coerce to factor as per the excel sheet
+cols <-c("RESPONSE","FOREIGN","TELEPHONE","JOB","OWN_RES","RENT","OTHER_INSTALL","PROP_UNKN_NONE","REAL_ESTATE","PRESENT_RESIDENT","GUARANTOR","CO.APPLICANT","MALE_MAR_or_WID","MALE_SINGLE","MALE_DIV","EMPLOYMENT","SAV_ACCT","RETRAINING","EDUCATION","RADIO.TV","FURNITURE","USED_CAR","NEW_CAR","HISTORY","CHK_ACCT","OBS.")
+gcData[cols]<-lapply(gcData[cols], factor)
+gcData$X<-NULL
+sapply(gcData, class)
+```
+# Explore the data: What is the proportion of "Good" to "Bad" cases?
+```{r}
+table(gcData$RESPONSE)
+# Good are 700 cases
+# Bad are 300 cases
+# Hence the proportion would be 7:3.
+```
+# Are there any missing values - how do you handle these?
+```{r}
+gcData[!complete.cases(gcData),] #
+apply(gcData, 2, function(x) any(is.na(x))) 
+# 1000 rows have NA values
+# The columns having NA values are NEW_CAR, USED_CAR, FURNITURE, RADIO.TV, EDUCATION, RETRAINING, AGE
+# The missing values can be handled by  
+#   1.omiting them using na.omit 
+#   2.imputing the mean values for numeric variables and mode values for categorical values
+#   3.Na's can also be replaced by any number like 0.
+```
+# Obtain descriptions of the independent variables - mean, standard deviations, etc. for real-values attributes and frequencies of different category values.Examine variable plots.
+# Do you notice 'bad' credit cases to be more prevalent in certain value-ranges of specific variables, and is this what one might expect (or is it more of a surprise)?
+```{r}
+install.packages('psych')
+library('psych')
+str(gcData)
+
+# UNIVARIATE 
+
+# NUMERICAL ATTRIBUTES
+# DURATION
+describe(gcData$DURATION)
+# The median is smaller than the mean, so it is right skewed. 
+# The skewness is 1.09 which shows that it is skewed. 
+# The range is 68, between 4 and 72. 
+# The kurtosis is 0.9 which is a non normally distributed plot.
+hist(mdData$DURATION,main="Response Distribution",xlab ="Response", col="steelblue", freq=F)
+plot(density(mdData$DURATION),main="Response",xlab ="Response", col="darkgray", lwd=3) 
+# The plots are right skewed. 
+# It is multi modal graph.
+
+# AMOUNT
+describe(gcData$AMOUNT)
+# The median is smaller than the mean, so it is right skewed. 
+# The skewness is 1.94 which shows that it is heavily skewed. 
+# The range is 18174, between 250 and 18424 
+# The kurtosis is 4.25 which is a non normally distributed plot.
+hist(mdData$AMOUNT,main="AMOUNT Distribution",xlab ="Amount", col="steelblue", freq=F)
+plot(density(mdData$AMOUNT),main="AMOUNT",xlab ="Amount", col="darkgray", lwd=3) 
+# The plots are heavily right skewed. 
+
+# INSTALL_RATE
+describe(gcData$INSTALL_RATE)
+# The median is smaller than the mean, so it is right skewed. 
+# The skewness is 1.94 which shows that it is heavily skewed. 
+# The range is 18174, between 250 and 18424 
+# The kurtosis is 4.25 which is a non normally distributed plot.
+hist(mdData$AMOUNT,main="AMOUNT Distribution",xlab ="Amount", col="steelblue", freq=F)
+plot(density(mdData$AMOUNT),main="AMOUNT",xlab ="Amount", col="darkgray", lwd=3) 
+# The plots are heavily right skewed.
+
+# AGE
+describe(gcData$AGE)
+# The median is smaller than the mean, so it is right skewed. 
+# The skewness is 1.03 which shows that it is skewed. 
+# The range is 56, between 19 and 75 
+# The kurtosis is 0.61 which is a near to a normally distributed plot.
+hist(gcData$AGE,main="AGE Distribution",xlab ="Age", col="steelblue", freq=F)
+plot(density(gcData$AGE, na.rm = TRUE),main="AGE",xlab ="Age", col="darkgray", lwd=3) 
+# The plots are right skewed.
+
+# NUM_CREDITS
+describe(gcData$NUM_CREDITS)
+# The median is smaller than the mean, so it is right skewed. 
+# The skewness is 1.27 which shows that it is heavily skewed. 
+# The range is 4, between 1 and 3 
+# The kurtosis is 1.58 which is a non normally distributed plot.
+hist(gcData$NUM_CREDITS,main="NUM_CREDITS Distribution",xlab ="NUM_CREDITS", col="steelblue", freq=F)
+plot(density(gcData$NUM_CREDITS, na.rm = TRUE),main="NUM_CREDITS",xlab ="NUM_CREDITS", col="darkgray", lwd=3) 
+# The plots are heavily skewed.
+# Plot is Multi modal.
+
+# NUM_DEPENDENTS
+describe(gcData$NUM_DEPENDENTS)
+# The median is smaller than the mean, so it is right skewed. 
+# The skewness is 1.9 which shows that it is heavily skewed. 
+# The range is 1, between 1 and 2 
+# The kurtosis is 1.63 which is a non normally distributed plot.
+hist(gcData$NUM_DEPENDENTS,main="NUM_DEPENDENTS Distribution",xlab ="NUM_DEPENDENTS", col="steelblue", freq=F)
+plot(density(mdData$NUM_DEPENDENTS),main="NUM_DEPENDENTS",xlab ="NUM_DEPENDENTS", col="darkgray", lwd=3) 
+# The plots are heavily right skewed.
+# Plots is Multi modal.
+
+# CATEGORICAL ATTIBUTES
+# CHK_ACCT
+summary(gcData$CHK_ACCT)
+pchk_acct<-(prop.table(table(gcData$CHK_ACCT))*100) # Convert to percentages 
+barplot(pchk_acct, main = "Checking Account", xlab = "Checking Account", ylab = "Proportion", col="steelblue", ylim=c(0,95))
+# From the plot we see that, Checking account status 3 has the maximum percentage, meaning applicants with no Checking account  have the highest percentage.whereas, Checking account status 2 has the least percentage, meaning applicants with more than 200 DM hav the lowest percentage.
+
+# HISTORY
+summary(gcData$HISTORY)
+phistory<-(prop.table(table(gcData$HISTORY))*100) # Convert to percentages 
+barplot(phistory, main = "History", xlab = "History", ylab = "Proportion", col="steelblue", ylim=c(0,95))
+# From the plot we see that the applicants who have existing credits paid back till now have the highest percentage,whereas, the applicants without any credit history have the lowest percentage.
+
+# SAV_ACCT
+summary(gcData$SAV_ACCT)
+psav_acct<-(prop.table(table(gcData$SAV_ACCT))*100) # Convert to percentages 
+barplot(psav_acct, main = "Saving Account", xlab = "Saving Account", ylab = "Proportion", col="steelblue", ylim=c(0,95))
+# From the plots we see that, an applicant with an average balance of less than 100 DM has the maximum percentage,whereas, those applicants with no saving accounts have the minimum percentage.
+
+# EMPLOYMENT
+summary(gcData$EMPLOYMENT)
+pemployment<-(prop.table(table(gcData$EMPLOYMENT))*100) # Convert to percentages 
+barplot(pemployment, main = "Employment", xlab = "Employment", ylab = "Proportion", col="steelblue", ylim=c(0,95))
+# From the plot we see that the applicants who have existing employment between 1 to 4 years have the highest percentage,whereas, the applicants with no employment have the lowest percentage.
+
+# JOB
+summary(gcData$JOB)
+pjob<-(prop.table(table(gcData$JOB))*100) # Convert to percentages 
+barplot(pjob, main = "Job", xlab = "Job", ylab = "Proportion", col="steelblue", ylim=c(0,95))
+# From the plot we see that the skilled applicants have the highest percentage,whereas, unskilled applicants have the lowest percentage.
+
+# GUARANTOR
+summary(gcData$GUARANTOR)
+pguarantor<-(prop.table(table(gcData$GUARANTOR))*100) # Convert to percentages 
+barplot(pguarantor, main = "Guarantor", xlab = "Guarantor", ylab = "Proportion", col="steelblue", ylim=c(0,95))
+# From the plots, we can see that, the applicants which have no guarantors hold the large percentage as compared to the applicants with a guarantor
+```
+
+```{r}
+
+# BIVARIATE 
+
+# Numerical vs Categorical Relationship
+# AGE AND RESPONSE
+a<-gcData[gcData$RESPONSE=="0",]
+b<-gcData[gcData$RESPONSE=="1",]
+plot(density(a$AGE, na.rm = TRUE), col="red", lwd=2.5, main="Distribution of Age by Response")
+lines(density(b$AGE, na.rm = TRUE), col="blue", lwd=2.5) # 
+# The blue color plot represents the distribution of good creditors as per age while the red color plot shows distribution of bad creditors according to age.
+# The peak of red plot signifies that the number of bad creditors are more as compared to good creditors in the same age range.
+# This is something unexpected.
+
+# Categorical Vs Categorical Relationships 
+library('ggplot2')
+# CHK_ACCT and RESPONSE
+dat_1 <- data.frame(table(gcData$CHK_ACCT, gcData$RESPONSE))
+names(dat_1) <- c("CHK_ACCT", "RESPONSE", "Count")
+ggplot(data=dat_1, aes(x= CHK_ACCT, y=Count, fill = RESPONSE)) + geom_bar(stat = "identity")
+# Almost 15% of applicants having no checking account are good creditors, which is a surprise. The applicants which checking account
+# status as >200 DM are mostly good creditors, which is not a surprise.
+
+# HISTORY and RESPONSE
+dat_2 <- data.frame(table(gcData$HISTORY, gcData$RESPONSE))
+names(dat_2) <- c("HISTORY", "RESPONSE", "Count")
+ggplot(data=dat_2, aes(x= HISTORY, y=Count, fill = RESPONSE)) + geom_bar(stat = "identity")
+# Almost 75% of applicants having critical accounts are good creditors. This also comes as a surprise.
+
+# SAV_ACCT and RESPONSE
+dat_3 <- data.frame(table(gcData$SAV_ACCT, gcData$RESPONSE))
+names(dat_3) <- c("SAV_ACCT", "RESPONSE", "Count")
+ggplot(data=dat_3, aes(x= SAV_ACCT, y=Count, fill = RESPONSE)) + geom_bar(stat = "identity")
+# Most applicants having average balance in their savings account between 500 - 1000 DM and more than 1000 DM are good creditors.
+# Also, 67% of appplicants having no savings account are good creditors, and this comes as a surprise.
+
+# EMPLOYMENT and RESPONSE
+dat_4 <- data.frame(table(gcData$EMPLOYMENT, gcData$RESPONSE))
+names(dat_4) <- c("EMPLOYMENT", "RESPONSE", "Count")
+ggplot(data=dat_4, aes(x= EMPLOYMENT, y=Count, fill = RESPONSE)) + geom_bar(stat = "identity")
+# The applicants who are presently employed for 1 to 4 years have a good credit response. This is not a surprise.
+
+# JOB and RESPONSE
+dat_5 <- data.frame(table(gcData$JOB, gcData$RESPONSE))
+names(dat_5) <- c("JOB", "RESPONSE", "Count")
+ggplot(data=dat_5, aes(x= JOB, y=Count, fill = RESPONSE)) + geom_bar(stat = "identity")
+# In the skilled/official employee category - 33% applicants are bad creditors and 67% are good creditors. 
+# This maximum number of good creditors doesn't come as a surprise.
+
+# GUARANTOR and RESPONSE
+dat_6 <- data.frame(table(gcData$GUARANTOR, gcData$RESPONSE))
+names(dat_6) <- c("GUARANTOR", "RESPONSE", "Count")
+ggplot(data=dat_6, aes(x= GUARANTOR, y=Count, fill = RESPONSE)) + geom_bar(stat = "identity")
+# Most applicants having a guarantor are good creditors. 67% of applicants having no guarantor are good creditors too, which 
+# is a surprise.
+
+# FOREIGN and RESPONSE
+dat_7 <- data.frame(table(gcData$FOREIGN, gcData$RESPONSE))
+names(dat_7) <- c("FOREIGN", "RESPONSE", "Count")
+ggplot(data=dat_7, aes(x= FOREIGN, y=Count, fill = RESPONSE)) + geom_bar(stat = "identity")
+# Most foreign workers are good creditors. About 1/3rd of the non-foreign workers are bad creditors while the rest are good.
+
+# OWN_RES and RESPONSE
+dat_8 <- data.frame(table(gcData$OWN_RES, gcData$RESPONSE))
+names(dat_8) <- c("OWN_RES", "RESPONSE", "Count")
+ggplot(data=dat_8, aes(x= OWN_RES, y=Count, fill = RESPONSE)) + geom_bar(stat = "identity")
+# 67% of the applicants who own residence are good creditors and this doesn't come as a surprise.
+```
+# What are certain interesting variables and relationships (why 'interesting')?
+# Certain other interesting variables and relationships include:
+# -	Even if there is No GUARANTOR, then also good cases are high.
+# -	With Critical Account Credit History the the number of Good cases are maximum. 
+# -	For Foreign worker there are very few cases of good/bad creditors.
+# -	Having a telephone or not doesn't seem to have any effect on having a credit card from the plots.
+# - Having no Saving Accounts has maximum number of good cases.
+# These relationships are interesting because they come as surprises and exhibit a different case from what was expected.
+
+# From the data exploration, which variables do you think will be most relevant for the outcome of interest, and why?
+# The variables which are the most relevant are - age, guarantor, employment, checking account, savings account, history.
+# - With applicants having No Guarantor depicted good cases.
+# - AMOUNT and EMPLOYMENT have good correlation in predicting response.
+# - Having no Saving Accounts has maximum number of good cases.
+# These variables are most relevant as they exhibit strong relationship with Response variable.
+

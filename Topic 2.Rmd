@@ -1,0 +1,772 @@
+---
+title: "Topic 2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Install the 'rpart' package to develop decision trees
+install.packages('rpart')
+library('rpart')
+```
+
+```{r}
+# Read the data, and examine summary statistics 
+gcData <- read.csv(file.choose(), header = TRUE)
+summary(gcData)
+attributes(gcData)
+View(gcData)
+```
+
+```{r}
+# Make sure that the variabes are set to the correct attribute type -- factor, integer, numeric
+str(gcData)
+```
+
+```{r}
+# Columns to coerce to factor as per the excel sheet
+col_to_factor <- c("OTHER_INSTALL", "RENT", "OWN_RES", "JOB", "TELEPHONE", "FOREIGN", "RESPONSE", "SAV_ACCT", "EMPLOYMENT", "MALE_DIV", "MALE_SINGLE", "MALE_MAR_or_WID", "CO.APPLICANT", "GUARANTOR", "PRESENT_RESIDENT", "REAL_ESTATE", "PROP_UNKN_NONE", "CHK_ACCT", "HISTORY", "NEW_CAR", "USED_CAR", "FURNITURE", "RADIO.TV", "EDUCATION", "RETRAINING")
+gcData[col_to_factor] <- lapply(gcData[col_to_factor], factor)
+sapply(gcData, class)
+gcData$X<-NULL
+gcData$OBS.<-NULL
+
+```
+# We focus on a descriptive model - i.e. assume we are not interested in prediction.
+# a Develop a decision tree on the full data. What decision tree node parameters do you use to get a good model (and why?)
+```{r}
+#INFORMATION
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'))
+print(rpModel1)
+summary(rpModel1) 
+# Plotting the graph
+rpart.plot::prp(rpModel1, type = 2, extra = 1)
+predTrn=predict(rpModel1, gcData, type='class')
+# Confusion table
+table(pred = predTrn, true=gcData$RESPONSE)
+#    true
+#pred   0   1
+#   0 175  97
+#   1 125 603
+#Accuracy
+mean(predTrn==gcData$RESPONSE)
+#77.8%
+
+set.seed(123)
+#Changing node parameter types with split=information
+#minsplit
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.001))
+predTrn=predict(rpModel1, gcData, type='class')
+mean(predTrn==gcData$RESPONSE)
+#89.6%
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 5, cp=0.001))
+predTrn=predict(rpModel1, gcData, type='class')
+mean(predTrn==gcData$RESPONSE)
+#94.5%
+
+#minbucket
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'), control = rpart.control(minbucket = 10, cp=0.001))
+predTrn=predict(rpModel1, gcData, type='class')
+mean(predTrn==gcData$RESPONSE)
+#82.7%
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'), control = rpart.control(minbucket = 5, cp=0.001))
+predTrn=predict(rpModel1, gcData, type='class')
+mean(predTrn==gcData$RESPONSE)
+#86.5%
+
+#GINI
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'))
+print(rpModel1)
+summary(rpModel1) 
+rpart.plot::prp(rpModel1, type = 2, extra = 1)
+predTrn=predict(rpModel1, gcData, type='class')
+#Confusion table
+table(pred = predTrn, true=gcData$RESPONSE)
+#    true
+#pred   0   1
+#   0 181  98
+#   1 119 602
+#Accuracy
+mean(predTrn==gcData$RESPONSE)
+#78.3%
+
+#Changing node parameter types with split=gini 
+#minsplit
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'), control = rpart.control(minsplit = 10, cp=0.001))
+predTrn=predict(rpModel1, gcData, type='class')
+mean(predTrn==gcData$RESPONSE)
+#89.6%
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'), control = rpart.control(minsplit = 5, cp=0.001))
+predTrn=predict(rpModel1, gcData, type='class')
+mean(predTrn==gcData$RESPONSE)
+#93.5%
+
+#minbucket
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'), control = rpart.control(minbucket = 10, cp=0.001))
+predTrn=predict(rpModel1, gcData, type='class')
+mean(predTrn==gcData$RESPONSE)
+#82.4%
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'), control = rpart.control(minbucket = 5, cp=0.001))
+predTrn=predict(rpModel1, gcData, type='class')
+mean(predTrn==gcData$RESPONSE)
+#85.9%
+
+# Information Gain and Gini models both give close by accuracy values.
+# Decreasing the minsplit increases the accuracy but the further decrease may inturn may lead to over-fitting issues as   using minsplit = 1 will give a 100% accuracy. 
+# Also, the accuracy is affected more by using minsplit parameter as compared to minbucket parameter.
+# The best model is built with node parameters minsplit set as 10, complexity parameter set as 0.001 and the split       criteria set as gini or information gain, yielding the same accuracy of 89.6% as the model with minsplit = 5 is inturn leading to being over-fit, although it has the maximum accuracy.
+```
+# b Which variables are important to differentiate "good" from "bad" cases - and how do you determine these? Does this match your expectations (from the your response in Question 1)?
+```{r}
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'))
+summary(rpModel1) 
+# Variable importance
+# CHK_ACCT       DURATION       HISTORY      AMOUNT       
+#   36             14             13          13 
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'), control = rpart.control(minsplit = 10, cp=0.001)) 
+summary(rpModel1)
+# Variable importance
+# AMOUNT         CHK_ACCT       DURATION      AGE          
+#  17               16             11          8
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'))
+summary(rpModel1) 
+# Variable importance
+# CHK_ACCT       DURATION        HISTORY      SAV_ACCT          
+#  42               13             13          11 
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.001)) 
+summary(rpModel1)
+# Variable importance
+# CHK_ACCT       AMOUNT         DURATION      HISTORY               
+#   15             14               8           8 
+
+# We see that with different models, the important variables coming on the top part of the tree are nearly the same.  With each model the percentage of observations change. Seeing one model we can match our expectaions with other models. The top 4 most important variables are CHK_ACCT, AMOUNT, DURATION and HISTORY.
+# From question 1 we see that the variables which seem most relevant are - age, guarantor, employment, checking          account, savings account, history.
+# We can see that Checking account and history are present in both variable importance.
+```
+# c What levels of accuracy/error are obtained? What is the accuracy on the "good" and "bad" cases? Obtain and interpret the lift chart. Do you think this is a reliable (robust?) description, and why.
+```{r}
+#Now we can find the model accuracy and accuracy on good cases and bad cases. 
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'))
+predTrn=predict(rpModel1, gcData, type='class')
+table(pred = predTrn, true=gcData$RESPONSE)
+#    true
+#pred   0   1
+#   0 181  98
+#   1 119 602
+#Accuracy on bad cases : 60.3%
+#Accuracy on good cases: 86.0%
+#Model Accuracy
+mean(predTrn==gcData$RESPONSE)
+#78.3%
+ 
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='gini'), control = rpart.control(minsplit = 10, cp=0.001)) 
+predTrn=predict(rpModel1, gcData, type='class')
+table(pred = predTrn, true=gcData$RESPONSE)
+#    true
+#pred   0   1
+#   0 229  33
+#   1  71  667
+#Accuracy on bad cases : 77.0%
+#Accuracy on good cases: 94.7%
+#Model Accuracy
+mean(predTrn==gcData$RESPONSE)
+#89.6%
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'))
+predTrn=predict(rpModel1, gcData, type='class')
+table(pred = predTrn, true=gcData$RESPONSE)
+#    true
+#pred   0   1
+#   0 175  97
+#   1 125 603
+#Accuracy on bad cases : 58.3%
+#Accuracy on good cases: 86.1%
+#Model Accuracy
+mean(predTrn==gcData$RESPONSE)
+#77.8%
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcData, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.001)) 
+predTrn=predict(rpModel1, gcData, type='class')
+table(pred = predTrn, true=gcData$RESPONSE)
+#    true
+#pred   0   1
+#   0 220  24
+#   1  80 676
+#Accuracy on bad cases : 73.3%
+#Accuracy on good cases: 96.5%
+#Model Accuracy
+mean(predTrn==gcData$RESPONSE)
+#89.6%
+#Lift chart
+lift.perf = performance(rocPredTst,measure = "lift")
+lift.perf@y.values
+plot(lift.perf)
+#ROCR
+install.packages('ROCR')
+library('ROCR')
+scoreTst=predict(rpModel1,gcData, type="prob")[,'1']  
+#Now apply the prediction function from ROCR to get a prediction object
+rocPredTst = prediction(scoreTst, gcData$RESPONSE, label.ordering = c('0', '1'))  
+#Obtain performance using the function from ROCR, then plot
+perfROCTst=performance(rocPredTst, "tpr", "fpr")
+plot(perfROCTst)
+#This method doesn't give a reliable model as we cannot estimate how this model will work on unseen data.
+```
+
+# We next consider developing a model for prediction. For this, we should divide the data into Training and Validation sets. Consider a partition of the data into 50% for Training and 50% for Test 
+
+# a Develop decision trees using the rpart package. What model performance do you obtain? Consider performance based on overall accuracy/error and on the 'good' and 'bad' credit cases - explain which performance measures, like recall, precision, sensitivity, etc. you use and why. Also consider lift, ROC and AUC.Is the model reliable (why or why not)?
+```{r}
+#split the data into training and test(validation) sets - 50% for training, rest for validation
+set.seed(123)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50%sample of row-indices
+gcTrn = gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcTst = gcData[-trnIndex,]  #test data with the other row-indices
+
+#Now we can find the model accuracy and accuracy on good cases and bad cases. 
+#Model 1 - GINI split
+set.seed(123)
+rpModel1g = rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='gini'))
+predTrng = predict(rpModel1g, gcTrn, type='class')
+table(pred = predTrng, true=gcTrn$RESPONSE)
+#    true
+#pred   0   1
+#   0  74  19
+#   1  75 332
+#Accuracy on bad cases : 49.6%
+#Accuracy on good cases: 94.6%
+#Model Accuracy
+mean(predTrng==gcTrn$RESPONSE) #81.2%
+
+#Finding prediction on test data:
+predTestg = predict(rpModel1g, gcTst, type="class")
+table(pred=predTestg, true=gcTst$RESPONSE)
+#    true
+#pred   0   1
+#   0  49  44
+#   1 102 305
+#Accuracy on bad cases : 32.5%
+#Accuracy on good cases: 87.4%
+#Model Accuracy
+mean(predTestg==gcTst$RESPONSE) #70.8%
+
+#Model 2 - INFORMATION split
+set.seed(123)
+rpModel1i=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'))
+predTrni=predict(rpModel1i, gcTrn, type='class')
+table(pred = predTrni, true=gcTrn$RESPONSE)
+#    true
+#pred   0   1
+#   0  78  21
+#   1  71 330
+#Accuracy on bad cases : 52.3%
+#Accuracy on good cases: 94%
+#Model Accuracy
+mean(predTrni==gcTrn$RESPONSE) #81.6%
+
+#Finding prediction on test data:
+predTesti = predict(rpModel1i, gcTst, type="class")
+table(pred=predTesti, true=gcTst$RESPONSE)
+#    true
+#pred   0   1
+#   0  63  48
+#   1  88 301
+#Accuracy on bad cases : 41.7%
+#Accuracy on good cases: 86.2%
+#Model Accuracy
+mean(predTesti==gcTst$RESPONSE) #72.8%
+#Model build on information split criteria , has a better accuracy on test data (more by 2%) as compared to gini criteria,hence,we will only see the models build on information split criteria.
+#Performance measures
+
+#Accuracy/Precision/Recall
+install.packages("caret")
+install.packages("e1071")
+library(caret)
+library(e1071)
+confusionMatrix(predTesti,gcTst$RESPONSE)
+confusionMatrix(predTesti,gcTst$RESPONSE,mode = "prec_recall")
+
+#ROC 
+scoreTsti=predict(rpModel1i,gcTst, type="prob")[,'1']  
+#now apply the prediction function from ROCR to get a prediction object
+rocPredTsti = prediction(scoreTsti, gcTst$RESPONSE, label.ordering = c('0', '1'))  
+#obtain performance using the function from ROCR, then plot
+perfROCTsti=performance(rocPredTsti, "tpr", "fpr")
+plot(perfROCTsti)
+cost.perfi = performance(rocPredTsti, "cost")
+rocPredTsti@cutoffs[[1]][which.min(cost.perfi@y.values[[1]])]#Cost:0.25
+
+#Lift
+lift.perfi = performance(rocPredTsti,measure = "lift")
+lift.perfi@y.values
+plot(lift.perfi)
+
+#AUC
+acc.perfi = performance(rocPredTsti, measure = "acc")
+plot(acc.perfi)
+auc.perfi = performance(rocPredTsti, measure = "auc")
+auc.perfi@y.values#Value:0.7299095
+#From ROC plots and the high AUC value we see that the model is robust and reliable.
+```
+# a In developing the models above, change decision tree options as you find reasonable (for example, complexity parameter (cp), the minimum number of cases for split and at a leaf node, the split criteria, etc.) - explain which parameters you experiment with and why. Report on if and how different parameters affect performance.
+
+```{r}
+# Develop a tree on the training data
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data = gcTrn, method="class")
+
+# Control parameters 
+# cp=0.001 - minsplit = 10
+set.seed(123)
+rpMode_1=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.001))
+predTrn_1 = predict(rpMode_1, gcTrn, type="class")
+table(pred=predTrn_1, true=gcTrn$RESPONSE)
+mean(predTrn_1==gcTrn$RESPONSE)
+#89%
+predTst_1 = predict(rpMode_1, gcTst, type="class")
+table(pred=predTst_1, true=gcTst$RESPONSE)
+mean(predTst_1==gcTst$RESPONSE)
+#65.8%
+
+# cp = 0.1 - minsplit = 10
+set.seed(123)
+rpMode_2=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.1))
+predTrn_2 = predict(rpMode_2, gcTrn, type="class")
+table(pred=predTrn_2, true=gcTrn$RESPONSE)
+mean(predTrn_2==gcTrn$RESPONSE)
+#70.2%
+predTst_2 = predict(rpMode_2, gcTst, type="class")
+table(pred=predTst_2, true=gcTst$RESPONSE)
+mean(predTst_2==gcTst$RESPONSE)
+#69.8%
+#After changing cp drastically to 0.1 from 0.001, we notice that in the confusion matrix, the bad creditors are all predicted as good creditors. The accuracy for the model predicted on training data decreases by 19% and the accuracy for the model predicted on test data increases by 4%.
+
+# cp = 0.001 - minsplit = 5
+set.seed(123)
+rpMode_3=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 5, cp=0.001))
+predTrn_3 = predict(rpMode_3, gcTrn, type="class")
+table(pred=predTrn_3, true=gcTrn$RESPONSE)
+mean(predTrn_3==gcTrn$RESPONSE)
+#94.4%
+predTst_3 = predict(rpMode_3, gcTst, type="class")
+table(pred=predTst_3, true=gcTst$RESPONSE)
+mean(predTst_3==gcTst$RESPONSE)
+#63.6%
+#After keeping cp value as 0.001 and changing minsplit to 5, we observe that the accuracy for the model predicted on training data increased to 94.4% from 89%, and the accuracy for the model predicted on testing data decreased to 63.6% from 65.8%.
+```
+# a Describe the pruning method used here. How do you examine the effect of different values of cp, and how do you select the best pruned tree.
+# Which decision tree parameter values do you find to be useful for developing a good model?
+```{r}
+# Pruning:
+set.seed(123)
+#Now we will do post pruning. We will use the base model rpModel1 for our predictions
+rpModel1=rpart(RESPONSE ~ ., data=gcTrn, method="class",parms = list(split ='information'))
+predTrnl=predict(rpModel1, gcTrn, type='class')
+#Confusion table
+table(pred = predTrnl, true=gcTrn$RESPONSE)
+#Accuracy
+mean(predTrnl==gcTrn$RESPONSE)
+#81.6%  
+predTrnl=predict(rpModel1, gcTst, type='class')
+#Confusion table
+table(pred = predTrnl, true=gcTst$RESPONSE)
+#Accuracy
+mean(predTrnl==gcTst$RESPONSE)
+#72.8%  
+printcp(rpModel1)
+rpModel1$cptable[which.min(rpModel1$cptable[,"xerror"]),"CP"] #0.05704698 
+plotcp(rpModel1) #0.028
+#Now pruning on cp values = 0.02908277 and 0.012
+rpModelPrune <- prune(rpModel1, cp = 0.02908277)
+#Training data
+set.seed(123)
+predTrnPrune <- predict(rpModelPrune, gcTrn, type = "class",parms = list(split ='information'))
+table(pred=predTrnPrune,true=gcTrn$RESPONSE)
+mean(predTrnPrune==gcTrn$RESPONSE)
+#79.2%  
+#Testing data
+set.seed(123)
+predTstPrune <- predict(rpModelPrune, gcTst, type = "class",parms = list(split ='information'))
+table(pred=predTstPrune,true=gcTst$RESPONSE)
+mean(predTstPrune==gcTst$RESPONSE)
+#73.6%  
+rpModelPrune <- prune(rpModel1, cp = 0.012)
+#Training data
+set.seed(123)
+predTrnPrune <- predict(rpModelPrune, gcTrn, type = "class",parms = list(split ='information'))
+table(pred=predTrnPrune,true=gcTrn$RESPONSE)
+mean(predTrnPrune==gcTrn$RESPONSE)
+#81.6%
+#Testing data
+set.seed(123)
+predTstPrune <- predict(rpModelPrune, gcTst, type = "class",parms = list(split ='information'))
+table(pred=predTstPrune,true=gcTst$RESPONSE)
+mean(predTstPrune==gcTst$RESPONSE)
+#72.8%
+
+# 1.We first find the base model accuracy for models predicted on training data and test data,after which that we find the optimal cp value where the cross validation error (xerror) and where relative error (rel error) have minimum value. # 2.From that we find two optimal cp values, 0.02908277 and 0.012
+# 3.By keeping these optimal values of cp, the accuracy for the training data decreased but for the testing increased.
+# 4.We find optimal cp value to be 0.028, with minsplit as 10 and split criteria as information gain.
+```
+
+# b Consider another type of decision tree - C5.0 - experiment with the parameters till you get a 'good' model. Summarize the parameters and performance you obtain.
+# Also develop a set of rules from the decision tree, and compare performance.
+```{r}
+# Since C5 cannot handle null values,we will reload the data and handle the missing values
+
+# Read the data, and examine summary statistics 
+gcData=read.csv('E:/MIS/UIC/Sem-2/Data Mining for Business/Assignment 1/GermanCredit_assgt_S18.csv',header=TRUE,sep=",")
+# gcData <- read.csv(file.choose(), header = TRUE)
+summary(gcData)
+attributes(gcData)
+View(gcData)
+```
+
+```{r}
+# Make sure that the variabes are set to the correct attribute type -- factor, integer, numeric
+str(gcData)
+```
+
+```{r}
+# Columns to coerce to factor as per the excel sheet
+gcData[is.na(gcData)] <- 0.0
+col_to_factor <- c("OTHER_INSTALL", "RENT", "OWN_RES", "JOB", "TELEPHONE", "FOREIGN", "RESPONSE", "SAV_ACCT", "EMPLOYMENT", "MALE_DIV", "MALE_SINGLE", "MALE_MAR_or_WID", "CO.APPLICANT", "GUARANTOR", "PRESENT_RESIDENT", "REAL_ESTATE", "PROP_UNKN_NONE", "CHK_ACCT", "HISTORY", "NEW_CAR", "USED_CAR", "FURNITURE", "RADIO.TV", "EDUCATION", "RETRAINING")
+gcData[col_to_factor] <- lapply(gcData[col_to_factor], factor)
+sapply(gcData, class)
+gcData$X<-NULL
+gcData$OBS.<-NULL
+```
+
+```{r}
+set.seed(123)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50% sample of row-indices
+gcTrn=gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcTst = gcData[-trnIndex,]
+```
+
+```{r}
+install.packages('C50')
+library(C50)
+# Model 1
+set.seed(123)
+c5model_1 <- C5.0(RESPONSE ~ ., data = gcTrn) 
+summary(c5model_1)# 88%
+p_1 = predict(c5model_1, gcTst, type='class')
+table(pred = p_1, true = gcTst$RESPONSE)
+mean(p_1 == gcTst$RESPONSE) # 71.4%
+
+# Model 2
+set.seed(123)
+c5model_2 <- C5.0(RESPONSE ~ ., data = gcTrn, rules = FALSE, trials = 1,
+                 control = C5.0Control(subset =  FALSE, winnow = FALSE, CF = 0.25, minCases = 2, 
+                                       noGlobalPruning = FALSE), costs = NULL) 
+summary(c5model_2)# 87.4%
+p_2 = predict(c5model_2, gcTst, type='class')
+table(pred = p_1, true = gcTst$RESPONSE)
+mean(p_2 == gcTst$RESPONSE) # 69.0%
+
+# Model 3
+set.seed(123)
+c5model_3 <- C5.0(RESPONSE ~ ., data = gcTrn, rules = TRUE, trials = 5,
+                control = C5.0Control(subset =  TRUE, winnow = FALSE, CF = 0.25, minCases = 2, 
+                                      noGlobalPruning = FALSE), costs = NULL) 
+summary(c5model_3)# 91.6%
+p_3 = predict(c5model_3, gcTst, type='class')
+table(pred = p_3, true = gcTst$RESPONSE)
+mean(p_3 == gcTst$RESPONSE) # 75.2%
+
+# Model 4
+set.seed(123)
+c5model_4 <- C5.0(RESPONSE ~ ., data = gcTrn, rules = TRUE, trials = 5,
+                control = C5.0Control(subset =  TRUE, winnow = FALSE, CF = 0.25, minCases = 10, 
+                                      noGlobalPruning = FALSE), costs = NULL) 
+summary(c5model_4)# 80.6%
+p_4 = predict(c5model_4, gcTst, type='class')
+table(pred = p_4, true = gcTst$RESPONSE)
+mean(p_4 == gcTst$RESPONSE) # 74.8%
+
+# Model 5
+set.seed(123)
+c5model_5 <- C5.0(RESPONSE ~ ., data = gcTrn, rules = TRUE, trials = 5,
+                control = C5.0Control(subset =  TRUE, winnow = FALSE, CF = 0.25, minCases = 20, 
+                                      noGlobalPruning = FALSE), costs = NULL) # 75.2%
+summary(c5model_5)# 80.4%
+p_5 = predict(c5model_5, gcTst, type='class')
+table(pred = p_5, true = gcTst$RESPONSE)
+mean(p_5 == gcTst$RESPONSE) # 74.6%
+
+# Model 6
+set.seed(123)
+c5model_6 <- C5.0(RESPONSE ~ ., data = gcTrn, rules = TRUE, trials = 5,
+                control = C5.0Control(subset =  TRUE, winnow = FALSE, CF = 0.95, minCases = 10, 
+                                      noGlobalPruning = FALSE), costs = NULL) 
+summary(c5model_6)#84.2%
+p_6 = predict(c5model_6, gcTst, type='class')
+table(pred = p_6, true = gcTst$RESPONSE)
+mean(p_6 == gcTst$RESPONSE) # 73.6%
+# Since c5model_3 (CF=0.25, mincases=2, trials=5) gives the best accuracy, this is our best model and the performance measures are:
+# Recall, precision and specificity
+install.packages("caret")
+install.packages("e1071")
+library(caret)
+library(e1071)
+confusionMatrix(p_3, gcTst$RESPONSE)  # Sensitivity and specificity
+confusionMatrix(p_3, gcTst$RESPONSE,mode = "prec_recall") # precision and recall
+summary(c5model_3)
+# ROC, AUC, Lift
+# ROC 
+scoreTst3 = predict(c5model_3,gcTst, type="prob")[,'1']  
+#now apply the prediction function from ROCR to get a prediction object
+rocPredTst3 = prediction(scoreTst3, gcTst$RESPONSE, label.ordering = c('0', '1'))  
+#obtain performance using the function from ROCR, then plot
+perfROCTst3=performance(rocPredTst3, "tpr", "fpr")
+plot(perfROCTst3)
+#Cost ROC
+cost.perf3 = performance(rocPredTst3, "cost")
+rocPredTst3@cutoffs[[1]][which.min(cost.perf3@y.values[[1]])]#0.5537838
+#AUC
+acc.perf3 = performance(rocPredTst3, measure = "acc")
+plot(acc.perf3)
+#AUC value
+auc.perf3 = performance(rocPredTst3, measure = "auc")
+auc.perf3@y.values#0.7394345
+#Lift
+lift.perf3 = performance(rocPredTst3,measure = "lift")
+lift.perf3@y.values
+plot(lift.perf3)
+```
+# c Decision tree models are referred to as 'unstable' - in the sense that small differences in
+#training data can give very different models. Examine the models and performance for
+#different samples of the training/test data (by changing the random seed). Do you find your
+#models to be unstable -- explain?
+```{r}
+#seed value = 123
+set.seed(123)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50%sample of row-indices
+gcTrn_123 = gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcTst_123 = gcData[-trnIndex,]  #test data with the other row-indices
+
+set.seed(123)
+rpModel_123=rpart(RESPONSE ~ ., data=gcTrn_123, method="class")
+
+predTrn_123=predict(rpModel_123, gcTrn_123, type='class')
+mean(predTrn_123==mdTrn_123$RESPONSE)
+#81.8%
+predTest_123 = predict(rpModel_123, gcTst_123, type="class")
+mean(predTest_123==mdTst_123$RESPONSE)
+#72%
+
+#seed value = 5
+set.seed(5)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex1 = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50%sample of row-indices
+gcTrn_5 = gcData[trnIndex1,]   #training data with the randomly selected row-indices
+gcTst_5 = gcData[-trnIndex1,]  #test data with the other row-indices
+
+#develop a tree on the training data
+set.seed(5)
+rpModel_5=rpart(RESPONSE ~ ., data=gcTrn_5, method="class")
+
+#Obtain the model's predictions on the training data
+predTrn_5=predict(rpModel_5, gcTrn_5, type='class')
+mean(predTrn_5==gcTrn_5$RESPONSE)
+#82.8%
+
+#Obtain the model's predictions on the test data
+predTest_5 = predict(rpModel_5, gcTst_5, type="class")
+mean(predTest_5==gcTst_5$RESPONSE)
+#74.8%
+
+#seed value = 999
+set.seed(999)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE)
+gcTrn_999 = gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcTst_999 = gcData[-trnIndex,]  #test data with the other row-indices
+
+#develop a tree on the training data
+set.seed(999)
+rpModel_999 = rpart(RESPONSE ~ ., data=gcTrn_999, method="class")
+
+# prediction on training
+predTrn_999 = predict(rpModel_999, gcTrn_999, type='class')
+mean(predTrn_999 == gcTrn_999$RESPONSE) 
+#83.2%
+
+# prediction on test
+predTst_999 = predict(rpModel_999, gcTst_999, type='class')
+mean(predTst_999 == gcTst_999$RESPONSE) 
+# 75.4%
+
+#Seed value = 123 
+#Accuracy on training model = 81.8%
+#Accuracy on test model = 72%
+#Seed value = 5
+#Accuracy on training model = 82.8%
+#Accuracy on test model = 74.8%
+#Seed value = 999
+#Accuracy on training model = 83.2%
+#Accuracy on test model = 75.4%
+
+#We notice that on different seed values, the accuracy on Training data differ as much as 1.4% change, as compared to the accuracy on Test data with a change of 3.4%
+```
+# d Which variables are important for separating 'Good' from 'Bad' credit? Determine variable importance from the different 'best' trees. Are there similarities, differences?
+```{r}
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.001)) 
+summary(rpModel1)
+# Variable importance
+# AMOUNT         CHK_ACCT        AGE          SAV_ACCT         EMPLOYEMENT         HISTORY
+# 19             12              9            8                7                   7
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'), control = rpart.control(cp=0.02908277))
+summary(rpModel1) 
+# Variable importance
+# CHK_ACCT       HISTORY         DURATION         SAV_ACCT           AGE
+# 41             12              9                8                  8 
+set.seed(123)
+c5model_3 <- C5.0(RESPONSE ~ ., data = gcTrn, rules = TRUE, trials = 5,
+                control = C5.0Control(subset =  TRUE, winnow = FALSE, CF = 0.25, minCases = 2, 
+                                      noGlobalPruning = FALSE), costs = NULL)
+summary(c5model_3)
+# Attribute usage and decreasing variable importance: 
+# 100.00%	USED_CAR
+# 100.00%	FOREIGN
+# 99.60%	GUARANTOR
+# 97.60%	DURATION
+# 96.60%	RENT
+# 88.80%	CHK_ACCT
+
+#We see that with different 'Best' models, the important variables coming on the top part of the tree are nearly the same. With each model the percentage of observations change. Seeing one model we can match our expectaions with other models. The top 3 most important variables are CHK_ACCT, AMOUNT and HISTORY, followed with AGE,DUARTION and SAV_ACCT.
+```
+# e Consider partitions of the data into 70% for Training and 30% for Test, and 80% for Training and 20% for Test and report on model and performance comparisons (for the decision tree learners considered above).
+#In the earlier question, you had determined a set of decision tree parameters to work well. Do the same parameters give 'best' models across the 50-50, 70-30, 80-20 training-test splits?
+#Are there similarities among the different models ..in, say, the upper part of the tree - and what does this indicate?
+#Is there any specific model you would prefer for implementation?
+```{r}
+set.seed(123)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50%sample of row-indices
+gcTrn = gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcTst = gcData[-trnIndex,]  #test data with the other row-indices
+
+set.seed(123)
+#develop a tree on the training data
+rpModel1=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'))
+predTrn=predict(rpModel1, gcTrn, type='class')
+mean(predTrn==gcTrn$RESPONSE) #82%
+predTest = predict(rpModel1, gcTst, type="class")
+mean(predTest==gcTst$RESPONSE)  #74%
+summary(rpModel1)
+# Variable importance
+# CHK_ACCT          AGE          HISTORY        DURATION         SAV_ACCT 
+# 24                9            9              7                6 
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.02908277))
+predTrn=predict(rpModel1, gcTrn, type='class')
+mean(predTrn==gcTrn$RESPONSE) #77.6
+predTest = predict(rpModel1, gcTst, type="class")
+mean(predTest==gcTst$RESPONSE)  #74.6%
+summary(rpModel1)
+# Variable importance
+# CHK_ACCT        HISTORY        SAV_ACCT        DURATION        AMOUNT          AGE 
+# 40              10             9               8               8               5 
+
+set.seed(123)
+TRG_PCT=0.7
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 70%sample of row-indices
+mdTrn = gcData[trnIndex,]   #training data with the randomly selected row-indices
+mdTst = gcData[-trnIndex,]  #test data with the other row-indices
+
+set.seed(123)
+#develop a tree on the training data
+rpModel1=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'))
+predTrn=predict(rpModel1, mdTrn, type='class')
+mean(predTrn==mdTrn$RESPONSE) #83.7%
+predTest = predict(rpModel1, mdTst, type="class")
+mean(predTest==mdTst$RESPONSE)  #73%
+summary(rpModel1)
+# Variable importance
+# CHK_ACCT         AMOUNT          HISTORY         DURATION         SAV_ACCT       EMPLOYMENT
+# 24               12              10              9                8              7
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=mdTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.02908277))
+predTrn=predict(rpModel1, mdTrn, type='class')
+mean(predTrn==mdTrn$RESPONSE) #78%
+predTest = predict(rpModel1, mdTst, type="class")
+mean(predTest==mdTst$RESPONSE)  #73.3%
+summary(rpModel1)
+# Variable importance
+# CHK_ACCT         HISTORY          AMOUNT         DURATION       EMPLOYMENT 
+# 39               13               13             9              7
+
+set.seed(123)
+TRG_PCT=0.8
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 80%sample of row-indices
+mdTrn = gcData[trnIndex,]   #training data with the randomly selected row-indices
+mdTst = gcData[-trnIndex,]  #test data with the other row-indices
+
+set.seed(123)
+#develop a tree on the training data
+rpModel1=rpart(RESPONSE ~ ., data=mdTrn, method="class", parms = list(split ='information'))
+predTrn=predict(rpModel1, mdTrn, type='class')
+mean(predTrn==mdTrn$RESPONSE) #79%
+predTest = predict(rpModel1, mdTst, type="class")
+mean(predTest==mdTst$RESPONSE)  #72%
+summary(rpModel1)
+# Variable importance
+# CHK_ACCT         HISTORY         DURATION         SAV_ACCT          AGE 
+# 42               14              12               12                4 
+
+set.seed(123)
+rpModel1=rpart(RESPONSE ~ ., data=mdTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.02908277))
+predTrn=predict(rpModel1, mdTrn, type='class')
+mean(predTrn==mdTrn$RESPONSE) #76.1%
+predTest = predict(rpModel1, mdTst, type="class")
+mean(predTest==mdTst$RESPONSE)  #75%
+summary(rpModel1)
+# Variable importance
+# CHK_ACCT         HISTORY         SAV_ACCT         DURATION          PRESENT_RESIDENT 
+# 51               15              14                9                3
+
+
+# As we are increase the partitioning parameter from 0.5 to 0.7 and finally 0.8 we see that the the some variables have gained in observation percentage. The variables seen in all the models are CHK_ACCT, HISTORY, DURATION and AMOUNT. We also observe that, this increment in training data observations leads to an increase in the number of observations percentage in the variable on 1st position of the model.
+```
+

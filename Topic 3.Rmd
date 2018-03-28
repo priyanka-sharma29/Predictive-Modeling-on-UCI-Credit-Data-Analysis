@@ -1,0 +1,139 @@
+---
+title: "Topic 3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Install the 'rpart' package to develop decision trees
+install.packages('rpart')
+library('rpart')
+```
+
+```{r}
+# Read the data, and examine summary statistics 
+gcData <- read.csv(file.choose(), header = TRUE)
+summary(gcData)
+attributes(gcData)
+View(gcData)
+```
+
+```{r}
+# Make sure that the variabes are set to the correct attribute type -- factor, integer, numeric
+str(gcData)
+```
+
+```{r}
+gcData[is.na(gcData)] <- 0.0
+col_to_factor <- c("OTHER_INSTALL", "RENT", "OWN_RES", "JOB", "TELEPHONE", "FOREIGN", "RESPONSE", "SAV_ACCT", "EMPLOYMENT", "MALE_DIV", "MALE_SINGLE", "MALE_MAR_or_WID", "CO.APPLICANT", "GUARANTOR", "PRESENT_RESIDENT", "REAL_ESTATE", "PROP_UNKN_NONE", "CHK_ACCT", "HISTORY", "NEW_CAR", "USED_CAR", "FURNITURE", "RADIO.TV", "EDUCATION", "RETRAINING")
+gcData[col_to_factor] <- lapply(gcData[col_to_factor], factor)
+sapply(gcData, class)
+gcData$X<-NULL
+gcData$OBS.<-NULL
+```
+
+```{r}
+set.seed(123)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50% sample of row-indices
+gcTrn= gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcTst = gcData[-trnIndex,]
+```
+# Consider the net profit (on average) of credit decisions as:
+# Accept applicant decision for an Actual "Good" case: 100DM, and
+# Accept applicant decision for an Actual "Bad" case: -500DM
+
+# a Use the misclassification costs to assess performance of a chosen model from Q 2 above. Compare model #performance. 
+```{r}
+
+rpModel_cost = rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(prior = c(.7, .3),loss = costMatrix, split ='information'), control =  rpart.control(minsplit = 10, cp=0.02908277))
+
+# prediction on training data
+predTrn_rp = predict(rpModel_cost, gcTrn, type='class')
+#Confusion table
+table(pred = predTrn_rp, true = gcTrn$RESPONSE)
+#Accuracy
+mean(predTrn_rp == gcTrn$RESPONSE) # 77.6%
+
+# prediction on test data
+predTst_rp = predict(rpModel_cost, gcTst, type='class')
+#Confusion table
+table(pred = predTst_rp, true = gcTst$RESPONSE)
+#Accuracy
+mean(predTst_rp == gcTst$RESPONSE) # 74.6%
+```
+# a Examine how different cutoff values for classification threshold make a difference. Use the #ROC curve to choose a classification threshold which you think will be better than the default 0.5. What #is the best performance you find?
+```{r}
+CTHRESH=0.1
+set.seed(123)
+# CHOSEN Model
+rpModel1=rpart(RESPONSE ~ ., data=gcTrn, method="class",parms = list(prior = c(.7, .3),loss = costMatrix, split ='information'), control =  rpart.control(minsplit = 10, cp=0.02908277))
+
+predProbTrn=predict(rpModel1, gcTrn, type='prob')
+#Confusion table
+predTrn = ifelse(predProbTrn[, '1'] >= CTHRESH, '1', '0')
+ct = table( pred = predTrn, true=gcTrn$RESPONSE)
+#Accuracy
+mean(predTrn==gcTrn$RESPONSE)
+#CTRESH values and accuracy
+#0.2 = 77.6%
+#0.3 = 67.4%
+#0.5 = 64.8%
+#0.7 = 29.8%
+predProbTst=predict(rpModel1, gcTst, type='prob')
+#Confusion table
+predTst = ifelse(predProbTst[, '1'] >= CTHRESH, '1', '0')
+ct = table( pred = predTst, true=gcTst$RESPONSE)
+#Accuracy
+mean(predTst==gcTst$RESPONSE)
+#CTRESH values and accuracy
+#0.2 = 74.6%
+#0.3 = 64.4%
+#0.5 = 62.6%
+#0.7 = 30.2%
+# We see that accuracy is maximum when the cthresh is set between 0.2 and as the cthresh value increases from 0.2 to 0.5 the accuracy drops slightly from 77.6% to 64.8% in Training data and from 74.6% to 62.6% in Testing data and as the cthresh value increases from 0.5 to 0.7, we see a sharp drop in accuracy from 64.8% to 29.8% in Training data and from 62.6% to 30.2% in Testing data)
+```
+# b Calculate and apply the 'theoretical' threshold and assess performance - what do you notice, and how does this relate to the answer from (a) above.
+```{r}
+th = costMatrix[1,2]/(costMatrix[2,1] + costMatrix[1,2])
+th 
+#0.1666667
+```
+# c Use misclassification costs to develop the tree models (rpart and C5.0) - are the trees here different than ones obtained earlier? Compare performance of these two new models with those obtained earlier (in part 3a, b above).
+```{r}
+# C50 model:
+c50_cost <- C5.0(RESPONSE ~ ., data = gcTrn, rules = TRUE, trials = 5,
+                control = C5.0Control(subset =  TRUE, winnow = FALSE, CF = 0.25, minCases = 2, 
+                noGlobalPruning = FALSE), costs = matrix(c(0,100,500,0),nrow = 2, byrow = TRUE)) # 66.8%
+summary(c50_cost)
+# 55.60 cost
+# Prediction on test data:
+prd = predict(c50_cost, gcTst, type='class')
+table(pred = prd, true = gcTst$RESPONSE)
+mean(prd == gcTst$RESPONSE) # 63.8%
+
+
+# Rpart:
+CTHRESH=0.2
+set.seed(123)
+# CHOSEN Model
+rpModel1=rpart(RESPONSE ~ ., data=gcTrn, method="class",parms = list(prior = c(.7, .3),loss = costMatrix, split ='information'), control =  rpart.control(minsplit = 10, cp=0.02908277))
+
+predProbTrn=predict(rpModel1, gcTrn, type='prob')
+#Confusion table
+predTrn = ifelse(predProbTrn[, '1'] >= CTHRESH, '1', '0')
+ct = table( pred = predTrn, true=gcTrn$RESPONSE)
+#Accuracy
+mean(predTrn==gcTrn$RESPONSE) # 77.6%
+
+predProbTst=predict(rpModel1, gcTst, type='prob')
+#Confusion table
+predTst = ifelse(predProbTst[, '1'] >= CTHRESH, '1', '0')
+ct = table( pred = predTst, true=gcTst$RESPONSE)
+#Accuracy
+mean(predTst==gcTst$RESPONSE) # 74.6%
+```

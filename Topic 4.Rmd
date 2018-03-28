@@ -1,0 +1,68 @@
+---
+title: "Topic 4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Install the 'rpart' package to develop decision trees
+install.packages('rpart')
+library('rpart')
+```
+
+```{r}
+# Read the data, and examine summary statistics 
+gcData <- read.csv(file.choose(), header = TRUE)
+summary(gcData)
+attributes(gcData)
+View(gcData)
+```
+
+```{r}
+# Make sure that the variabes are set to the correct attribute type -- factor, integer, numeric
+str(gcData)
+```
+
+```{r}
+gcData[is.na(gcData)] <- 0.0
+col_to_factor <- c("OTHER_INSTALL", "RENT", "OWN_RES", "JOB", "TELEPHONE", "FOREIGN", "RESPONSE", "SAV_ACCT", "EMPLOYMENT", "MALE_DIV", "MALE_SINGLE", "MALE_MAR_or_WID", "CO.APPLICANT", "GUARANTOR", "PRESENT_RESIDENT", "REAL_ESTATE", "PROP_UNKN_NONE", "CHK_ACCT", "HISTORY", "NEW_CAR", "USED_CAR", "FURNITURE", "RADIO.TV", "EDUCATION", "RETRAINING")
+gcData[col_to_factor] <- lapply(gcData[col_to_factor], factor)
+sapply(gcData, class)
+gcData$X<-NULL
+gcData$OBS.<-NULL
+```
+
+```{r}
+set.seed(123)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50% sample of row-indices
+gcTrn= gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcTst = gcData[-trnIndex,]
+```
+# Let's examine your 'best' decision tree model obtained. What is the tree depth? And how many nodes does it have? What are the important variables for classifying "Good' vs 'Bad' credit?
+# Identify two relatively pure leaf nodes. What are the 'probabilities for 'Good' and 'Bad' in these nodes?
+```{r}
+# Best decision tree =
+set.seed(123)
+rpModel=rpart(RESPONSE ~ ., data=gcTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.02908277))
+summary(rpModel)
+print(rpModel)
+
+install.packages('rattle')
+library(rattle)
+fancyRpartPlot(rpModel)
+# Depth = 6
+# No. of nodes= 13
+# Variable importance
+# CHK_ACCT         HISTORY        SAV_ACCT        DURATION         AMOUNT           
+# 40              10               9               8               8
+
+#Two relatively pure nodes:
+#Node 3: Predicted as 1. Probability ratio of good vs bad cases = 0.86:0.14
+#Node 45: Predicted as 0. Probability ratio of good vs bad cases = 0.28:0.72
+
+```

@@ -1,0 +1,128 @@
+# Develop Random Forest and Boosted Tree models and compare performance.  Compare performance using ROC curves, AUC, and also the business performance measure.Comment on which model, if any, is best.
+# Random forest model
+```{r}
+install.packages('randomForest')
+library('randomForest')
+gcData <- read.csv(file.choose(), header = TRUE)
+
+# Columns to coerce to factor as per the excel sheet
+# RANDOM FOREST / BAGGING does not handle missing values
+gcData[is.na(gcData)] <- 0.0
+col_to_factor <- c("OTHER_INSTALL", "RENT", "OWN_RES", "JOB", "TELEPHONE", "FOREIGN", "RESPONSE", "SAV_ACCT", "EMPLOYMENT", "MALE_DIV", "MALE_SINGLE", "MALE_MAR_or_WID", "CO.APPLICANT", "GUARANTOR", "PRESENT_RESIDENT", "REAL_ESTATE", "PROP_UNKN_NONE", "CHK_ACCT", "HISTORY", "NEW_CAR", "USED_CAR", "FURNITURE", "RADIO.TV", "EDUCATION", "RETRAINING")
+gcData[col_to_factor] <- lapply(gcData[col_to_factor], factor)
+sapply(gcData, class)
+gcData$X<-NULL
+gcData$OBS.<-NULL
+
+# For reproducible results, set a specific value for the random number seed
+set.seed(123)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50% sample of row-indices
+gcDataTrn=gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcDataTst = gcData[-trnIndex,]  #test data with the other row-indices
+
+# Develop a model with 500 trees, and obtain variable importance
+# When mtry=30 ,that is we take all the predictors,it is called BAGGING
+set.seed(123)
+rfModelBTrn <-randomForest(RESPONSE ~ .,data=gcDataTrn,ntree=500,importance=TRUE,mtry=30)
+rfModelBTrn
+# Note OOB error rate #29%
+# Variable importance
+importance(rfModelBTrn)
+varImpPlot(rfModelBTrn)
+
+# ROC
+install.packages('ROCR')
+library(ROCR)
+# Draw the ROC curve for the randomForest model
+perf_rf<-performance(prediction(predict(rfModelBTrn,gcDataTst, type="prob")[,2], gcDataTst$RESPONSE), "tpr", "fpr")
+plot(perf_rf)
+
+# AUC
+acc.perf1 = performance(prediction(predict(rfModelRFTrn,gcDataTst, type="prob")[,2], gcDataTst$RESPONSE), measure = "acc")
+plot(acc.perf1)
+#AUC value
+auc.perf1 = performance(prediction(predict(rfModelRFTrn,gcDataTst, type="prob")[,2], gcDataTst$RESPONSE), measure = "auc")
+auc.perf1@y.values
+
+# Business performance measures
+# Lets check how well this model performs on the test data
+predictBTst<-predict(rfModelBTrn,newdata = gcDataTst)
+class(predictBTst)
+predictBTst
+plot(predictBTst,gcDataTst$RESPONSE)
+install.packages("caret")
+install.packages("e1071")
+library(caret)
+library(e1071)
+confusionMatrix(predictBTst,gcDataTst$RESPONSE)
+confusionMatrix(predictBTst,gcDataTst$RESPONSE,mode = "prec_recall")
+
+# When mtry=6 ,that is we take square root of total number of predictors.it is called RANDOM FORESTS
+set.seed(123)
+rfModelRFTrn <-randomForest(RESPONSE ~ .,data=gcDataTrn,ntree=500,importance=TRUE,mtry=6)
+rfModelRFTrn
+# OOB error rate 23.6%
+# Variable importance
+importance(rfModelRFTrn)
+varImpPlot(rfModelRFTrn)
+
+# ROC
+install.packages('ROCR')
+library(ROCR)
+#Draw the ROC curve for the randomForest model
+perf_rf=performance(prediction(predict(rfModelRFTrn,gcDataTst, type="prob")[,2], gcDataTst$RESPONSE), "tpr", "fpr")
+plot(perf_rf)
+
+# AUC
+acc.perf1 = performance(prediction(predict(rfModelRFTrn,gcDataTst, type="prob")[,2], gcDataTst$RESPONSE), measure = "acc")
+plot(acc.perf1)
+#AUC value
+auc.perf1 = performance(prediction(predict(rfModelRFTrn,gcDataTst, type="prob")[,2], gcDataTst$RESPONSE), measure = "auc")
+auc.perf1@y.values
+
+# Business performance measures
+# Lets check how well this model performs on the test data
+predictBTst<-predict(rfModelBTrn,newdata = gcDataTst)
+class(predictBTst)
+predictBTst
+plot(predictBTst,gcDataTst$RESPONSE)
+install.packages("caret")
+install.packages("e1071")
+library(caret)
+library(e1071)
+confusionMatrix(predictBTst,gcDataTst$RESPONSE)
+confusionMatrix(predictBTst,gcDataTst$RESPONSE,mode = "prec_recall")
+```
+
+# Boosted Tree models
+```{r}
+install.packages('gbm')
+library('gbm')
+gcData=read.csv('E:/MIS/UIC/Sem-2/Data Mining for Business/Assignment 1/GermanCredit_assgt_S18.csv',header=TRUE,sep=",")
+
+# Columns to coerce to factor as per the excel sheet
+gcData[is.na(gcData)]<-0.0
+cols <-c("RESPONSE","FOREIGN","TELEPHONE","JOB","OWN_RES","RENT","OTHER_INSTALL","PROP_UNKN_NONE","REAL_ESTATE", "PRESENT_RESIDENT","GUARANTOR","CO.APPLICANT","MALE_MAR_or_WID","MALE_SINGLE","MALE_DIV","EMPLOYMENT","SAV_ACCT", "RETRAINING","EDUCATION","RADIO.TV","FURNITURE","USED_CAR","NEW_CAR","HISTORY","CHK_ACCT")
+gcData[cols]<-lapply(gcData[cols], factor)
+gcData$X<-NULL
+gcData$OBS.<-NULL
+
+sapply(gcData, class)
+# For reproducible results, set a specific value for the random number seed
+set.seed(123)
+
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50% sample of row-indices
+gcDataTrn=gcData[trnIndex,]     #training data with the randomly selected row-indices
+gcDataTst = gcData[-trnIndex,]  #test data with the other row-indices
+
+gcDataTrn[cols]<-lapply(gcDataTrn[cols], factor)
+sapply(gcDataTrn, class)
+
+rfModelBOTrn <-gbm(formula=RESPONSE ~ .,data=gcDataTrn,distribution="gaussian",n.trees=5000,shrinkage = 0.01,interaction.depth=4)
+rfModelBOTrn
+summary(rfModelBOTrn,plot=FALSE)
+```

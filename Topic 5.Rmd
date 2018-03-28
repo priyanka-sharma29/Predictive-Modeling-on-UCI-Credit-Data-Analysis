@@ -1,0 +1,156 @@
+---
+title: "Topic 5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Install the 'rpart' package to develop decision trees
+install.packages('rpart')
+library('rpart')
+```
+
+```{r}
+# Read the data, and examine summary statistics 
+gcData <- read.csv(file.choose(), header = TRUE)
+summary(gcData)
+attributes(gcData)
+View(gcData)
+```
+
+```{r}
+# Make sure that the variabes are set to the correct attribute type -- factor, integer, numeric
+str(gcData)
+```
+
+```{r}
+gcData[is.na(gcData)] <- 0.0
+col_to_factor <- c("OTHER_INSTALL", "RENT", "OWN_RES", "JOB", "TELEPHONE", "FOREIGN", "RESPONSE", "SAV_ACCT", "EMPLOYMENT", "MALE_DIV", "MALE_SINGLE", "MALE_MAR_or_WID", "CO.APPLICANT", "GUARANTOR", "PRESENT_RESIDENT", "REAL_ESTATE", "PROP_UNKN_NONE", "CHK_ACCT", "HISTORY", "NEW_CAR", "USED_CAR", "FURNITURE", "RADIO.TV", "EDUCATION", "RETRAINING")
+gcData[col_to_factor] <- lapply(gcData[col_to_factor], factor)
+sapply(gcData, class)
+gcData$X<-NULL
+gcData$OBS.<-NULL
+
+# For reproducible results, set a specific value for the random number seed
+set.seed(123)
+TRG_PCT=0.5
+nr=nrow(gcData)
+trnIndex = sample(1:nr, size = round(TRG_PCT*nr), replace=FALSE) #get a random 50% sample of row-indices
+gcDataTrn=gcData[trnIndex,]   #training data with the randomly selected row-indices
+gcDataTst = gcData[-trnIndex,]  #test data with the other row-indices
+
+# Develop a tree on the training data
+rpModel=rpart(RESPONSE ~ ., data=gcDataTrn, method="class", parms = list(split ='information'), control = rpart.control(minsplit = 10, cp=0.02908277))
+
+# Plot the tree
+library(rpart.plot)
+rpart.plot::prp(rpModel, type=2, extra=1)
+```
+
+Examine model performance
+```{r}
+# Obtain the model's predictions on the training data
+set.seed(123)
+predTrn=predict(rpModel, gcDataTrn, type='class')
+# Confusion table
+table(pred = predTrn, true=gcDataTrn$RESPONSE)
+# Accuracy
+mean(predTrn==gcDataTrn$RESPONSE)#0.776
+
+# Obtain the model's predictions on the test data
+predTst=predict(rpModel, gcDataTst, type='class')
+# Confusion table
+table(pred = predTst, true=gcDataTst$RESPONSE)
+# Accuracy
+mean(predTst==gcDataTst$RESPONSE)#0.746
+```
+#For this, first sort the validation data on predicted probability.
+```{r}
+predTstProb=predict(rpModel, gcDataTst, type='prob')
+head(predTstProb)
+# Next we sort the data based on these values
+# We need the score and actual class (RESPONSE) values
+tstSc <- subset(gcDataTst, select=c("RESPONSE"))  # selects the RESPONSE column into tstSc
+tstSc["score"]<-predTstProb[, 2]  #add a column named 'Score' with prob(1) values in the first column of predTstProb
+# Sort by score
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc
+```
+# Then, for each validation case, calculate the actual cost/benefit of extending credit by adding a separate column for the cumulative net cost/benefit
+```{r} 
+tstSc$RESPONSE<-as.numeric(as.character(tstSc$RESPONSE))
+str(tstSc)
+# Obtain the cumulative sum of default cases captured .
+tstSc$cumDefault<-cumsum(tstSc$RESPONSE)
+head(tstSc)
+# Plot the cumDefault values (y-axis) by numCases (x-axis)
+plot(seq(nrow(tstSc)), tstSc$cumDefault,type = "l", xlab='#cases', ylab='#default')
+```
+# How far into the validation data would you go to get maximum net benefit? 
+# In using this model to score future credit # applicants, what cutoff value for predicted probability would you recommend?
+```{r}
+# ROCR curve
+install.packages('ROCR')
+library('ROCR')
+# Obtain the scores from the model for the class of interest, here, the prob('1')
+scoreTst=predict(rpModel,gcDataTst, type="prob")[,'1']  
+scoreTst
+# Now apply the prediction function from ROCR to get a prediction object
+rocPredTst = prediction(scoreTst, gcDataTst$RESPONSE, label.ordering = c('0', '1'))  
+rocPredTst
+# Obtain performance using the function from ROCR, then plot
+perfROCTst=performance(rocPredTst, "tpr", "fpr")
+plot(perfROCTst)
+# Optimal cutoff
+cost.perf = performance(rocPredTst, "cost")
+rocPredTst@cutoffs[[1]][which.min(cost.perf@y.values[[1]])]
+# 997 
+# 0.6808511
+# Optimal cost with different costs for fp and fn
+cost.perf = performance(rocPredTst, "cost", cost.fp = 5, cost.fn = 1)
+rocPredTst@cutoffs[[1]][which.min(cost.perf@y.values[[1]])]
+# 995 
+# 0.8600823 
+```
+# Provide appropriate performance values to back up your recommendation
+```{r}
+# Other performance measures with the performance function
+acc.perf = performance(rocPredTst, measure = "acc")
+plot(acc.perf)
+
+# AUC vaue
+auc.perf = performance(rocPredTst, measure = "auc")
+auc.perf@y.values
+#0.7338469
+```
+#Calculate the 'profit' lift for a model - for this we need the scores given by a model, and the actual class values.
+#Assume a 'profit' value for correctly predicting a '1' case, and a 'cost' for mistakes.
+#First, sort by descending score values then calculate the profits, and then the cumulative profits
+```{r}
+library(dplyr)
+
+PROFITVAL=3
+COSTVAL=-2
+
+scoreTst=predict(rpModel,gcDataTst, type="prob")[,'1'] 
+prLifts=data.frame(scoreTst)
+prLifts=cbind(prLifts, Resp=gcDataTst$RESPONSE)
+head(prLifts)
+
+prLifts=prLifts[order(-scoreTst) ,]  #sort by descending score
+prLifts
+# Add profit and cumulative profits columns
+prLifts<-prLifts %>% mutate(profits=ifelse(prLifts$Resp=='1',PROFITVAL,COSTVAL),cumProfits=cumsum(profits))
+                                  
+plot(prLifts$cumProfits)
+# Find the score coresponding to the max profit
+maxProfit= max(prLifts$cumProfits)
+maxProfit_Ind = which.max(prLifts$cumProfits)
+maxProfit_score = prLifts$scoreTst[maxProfit_Ind]
+print(c(maxProfit = maxProfit, scoreTst = maxProfit_score))
+# maxProfit     scoreTst 
+# 745.0000000   0.2666667 
+```
